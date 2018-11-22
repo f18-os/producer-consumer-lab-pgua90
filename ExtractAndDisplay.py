@@ -18,14 +18,14 @@ semaphore4 = threading.Semaphore(10)
 class extractFrames(threading.Thread):
     def __init__(self):
         super(extractFrames, self).__init__()
-    def run(self):
+    def run(self): #Beginning of thread to extract all frames.
         clip = 'clip.mp4'
         vidcap = cv2.VideoCapture(clip)
         success, image = vidcap.read()
         count = 0
         print("Reading frame {} {} ".format(count, success))
         count+=1
-        while success:
+        while success: #Obtaining or reading frames one by one, until there are no more threads.
             semaphore1.acquire()
             lock1.acquire()
             frame1.append(image)
@@ -43,9 +43,9 @@ class convertFrames(threading.Thread):
     def __init__(self):
         super(convertFrames, self).__init__()
 
-    def run(self):
+    def run(self): #Beginning of thread to convert frames in greyscale.
         count2 = 0
-        while True:
+        while True: 
             semaphore2.acquire()
             semaphore3.acquire()
             lock1.acquire()
@@ -71,7 +71,7 @@ class convertFrames(threading.Thread):
 class displayFrames(threading.Thread):
     def __init__(self):
         super(displayFrames, self).__init__()
-    def run(self):
+    def run(self): #Beginning of thread for displaying frames
         while True:
             semaphore4.acquire()
             lock2.acquire()
@@ -89,12 +89,12 @@ for x in range(10):
     semaphore2.acquire()
     semaphore4.acquire()
 
+#Setting threads to be able to run them easily.
 dis = displayFrames()
 con = convertFrames()
 ext = extractFrames()
 
+#Starting all threads
 ext.start()
-
 con.start()
-
 dis.start()
