@@ -6,14 +6,14 @@ import threading
 import base64
 import queue
 
-frame1 = []
-frame2 = []
-lock1 = threading.Lock()
 semaphore1 = threading.Semaphore(10)
 semaphore2 = threading.Semaphore(10)
-lock2 = threading.Lock()
 semaphore3 = threading.Semaphore(10)
 semaphore4 = threading.Semaphore(10)
+frame1 = []
+frame2 = []
+lock2 = threading.Lock()
+lock1 = threading.Lock()
 
 class extractFrames(threading.Thread):
     def __init__(self):
