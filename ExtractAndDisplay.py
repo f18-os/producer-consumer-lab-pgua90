@@ -1,80 +1,99 @@
 #!/usr/bin/env python3
-
+#! /usr/bin/pip
+import os
 import threading
 import cv2
-import numpy as np
 import base64
 import queue
 
-def extractFrames(fileName, outputBuffer):
-    # Initialize frame count 
-    count = 0
+frame_1 = []
+frame_2 = []
+semaphore_1 = threading.Semaphore(10)
+semaphore_2 = threading.Semaphore(10)
+semaphore_3 = threading.Semaphore(10)
+semaphore_4 = threading.Semaphore(10)
+lock_1 = threading.Lock()
+lock_2 = threading.Lock()
 
-    # open video file
-    vidcap = cv2.VideoCapture(fileName)
+class extractFrames(threading.Thread):
+    def __init__(self):
+        super(extractFrames, self).__init__()
 
-    # read first image
-    success,image = vidcap.read()
-    
-    print("Reading frame {} {} ".format(count, success))
-    while success:
-        # get a jpg encoded frame
-        success, jpgImage = cv2.imencode('.jpg', image)
+    def extracting(self):
+        filename = 'clip.mp4'
+        vidcap = cv2.VideoCapture(fileName)    
+        success = vidcap.read()
+        image = vidcap.read()
+        count = 0
+        print("Reading frame {} {} ".format(count, success))
+        count+=1
+        while success:
+            semaphore_1.acquire()
+            lock_1.acquire()
+            frame_1.append(image)
+            success,image = vidcap.read()
+            print('Reading frame {} {}'.format(count, success))
+            count += 1
+            lock_1.release()
+            semaphore_1.release()
+        for x in range(10):
+            semaphore_1.release()
+        print("Frame extraction complete")
 
-        #encode the frame as base 64 to make debugging easier
-        jpgAsText = base64.b64encode(jpgImage)
-
-        # add the frame to the buffer
-        outputBuffer.put(jpgAsText)
-       
-        success,image = vidcap.read()
-        print('Reading frame {} {}'.format(count, success))
-        count += 1
-
-    print("Frame extraction complete")
-
-
-def displayFrames(inputBuffer):
-    # initialize frame count
-    count = 0
-
-    # go through each frame in the buffer until the buffer is empty
-    while not inputBuffer.empty():
-        # get the next frame
-        frameAsText = inputBuffer.get()
-
-        # decode the frame 
-        jpgRawImage = base64.b64decode(frameAsText)
-
-        # convert the raw frame to a numpy array
-        jpgImage = np.asarray(bytearray(jpgRawImage), dtype=np.uint8)
+class convertFrames(threading.Thread):
+    def __init__(self):
+        super(convertFrames, self).__init__()
+    def converting(self):
+        count2 = 0
+        while True:
+            semaphore_2.acquire()
+            semaphore_3.acquire()
+            lock_1.acquire()
+            lock_2.acquire()
+            if(frame_1):
+                freeFrame = frame_1.pop()
+            else:
+                break
+            grayFrame = cv2.cvtColor(freeFrame, cv2.COLOR_BGR2GRAY)
+            frame_2.append(grayFrame)
+            print("Converting frame {}".format(count))
+            count2 += 1
+            lock_2.release()
+            lock_1.release()
+            semaphore_4.release()
+            semaphore_1.release()
+        lock_2.release()
+        lock_1.release()
+        semaphore_1.release()
+        for x in range(10):
+            semaphore_4.release()
         
-        # get a jpg encoded frame
-        img = cv2.imdecode( jpgImage ,cv2.IMREAD_UNCHANGED)
+class displayFrames(threading.Thread):
+    def __init__(self):
+        super(displayFrames, self).__init__()
+    def displaying(self):
+        while True:
+            semaphore_4.acquire()
+            lock_2.acquire()
+            if(frame_2):
+                freeFrame2 = frame_2.pop()
+                cv2.imshow("Video",freeFrame2)
+                if cv2.waitKey(24) and 0xFF == ord("q"):
+                    break
+            else:
+                print("Finished displaying all frames")
+                break
+            lock_2.release()
+            semaphore_4.release()
 
-        print("Displaying frame {}".format(count))        
+for x in range(10):
+    semaphore_2.acquire()
+    semaphore_4.acquire()
 
-        # display the image in a window called "video" and wait 42ms
-        # before displaying the next frame
-        cv2.imshow("Video", img)
-        if cv2.waitKey(42) and 0xFF == ord("q"):
-            break
+toDisplay = displayFrames()
+toConvert = convertFrames()
+toExtract = extractFrames()
 
-        count += 1
-
-    print("Finished displaying all frames")
-    # cleanup the windows
-    cv2.destroyAllWindows()
-
-# filename of clip to load
-filename = 'clip.mp4'
-
-# shared queue  
-extractionQueue = queue.Queue()
-
-# extract the frames
-extractFrames(filename,extractionQueue)
-
-# display the frames
-displayFrames(extractionQueue)
-
+toDisplay.start()
+toConvert.start()
+toExtract.start()
